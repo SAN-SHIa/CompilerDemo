@@ -39,7 +39,6 @@ wheels/
 
 # 项目特定
 outcome/*
-!outcome/.gitkeep
 
 # 临时文件
 .tmp/
