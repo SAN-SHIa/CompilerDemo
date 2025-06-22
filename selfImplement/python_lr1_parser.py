@@ -205,33 +205,18 @@ class LR1Parser:
         
         first = set()
         
-        # 处理特殊情况：前瞻符号
-        if len(symbols) == 1 and symbols[0] == "#":
-            return {"#"}
-            
-        # 如果第一个元素是终结符或ε，则直接返回
-        if symbols[0] in self.grammar.terminals or symbols[0] == "ε":
-            return {symbols[0]}
-        
-        # 如果第一个元素是前瞻符号#，直接返回
-        if symbols[0] == "#":
-            return {"#"}
-
-        # 如果符号串的第一个元素是运算符，直接返回它
-        if symbols[0] in ['+', '-', '*', '/']:
+        # 处理第一个符号
+        # 如果第一个是终结符，直接返回它作为FIRST集
+        if symbols[0] in self.grammar.terminals or symbols[0] in ["ε", "#", ";"]:
             return {symbols[0]}
             
+        # 如果第一个是非终结符，计算它的FIRST集
         epsilon_in_all = True
         
         # 从左到右计算每个符号的FIRST集
         for symbol in symbols:
-            # 如果是前瞻符号，直接添加并继续
-            if symbol == "#":
-                first.add("#")
-                continue
-
-            # 如果是运算符，直接添加并继续
-            if symbol in ['+', '-', '*', '/']:
+            # 如果是终结符，直接添加到FIRST集并停止
+            if symbol in self.grammar.terminals or symbol in ["#", ";"]:
                 first.add(symbol)
                 epsilon_in_all = False
                 break
@@ -430,7 +415,17 @@ class LR1Parser:
         """将输入字符串分解为token列表"""
         import re
         
-        # 定义token模式 - 关键字必须放在标识符前面检测，否则会被识别为标识符
+        # 预处理代码：删除注释，规范化空白
+        # 去除单行注释
+        input_string = re.sub(r'//.*', '', input_string)
+        # 去除多行注释
+        input_string = re.sub(r'/\*.*?\*/', '', input_string, flags=re.DOTALL)
+        # 将换行符替换为空格
+        input_string = re.sub(r'\n', ' ', input_string)
+        # 规范化空白
+        input_string = re.sub(r'\s+', ' ', input_string).strip()
+
+        # 定义token模式 - 关键字必须放在标识符前面检测
         patterns = [
             # 二元运算符
             (r'==', '=='),
@@ -441,6 +436,13 @@ class LR1Parser:
             (r'\|\|', '||'),
             (r'\+\+', '++'),
             (r'--', '--'),
+            
+            # 花括号特殊处理
+            (r'\{', '{'),
+            (r'\}', '}'),
+            
+            # 分号处理
+            (r';', ';'),
             
             # 关键字需要在标识符之前检测
             (r'\bif\b', 'if'),
@@ -453,17 +455,16 @@ class LR1Parser:
             
             # 标识符放在关键字后面
             (r'[a-zA-Z_][a-zA-Z0-9_]*', 'id'),
-            (r'\d+', 'num'),
+            (r'\d+(?:\.\d+)?', 'num'),  # 支持小数点
             
-            # 基本运算符 - 注意这里明确包含了减号和除号
-            # 明确处理四种基本算术运算符，确保每个都被正确识别
+            # 基本运算符
             (r'[+]', '+'),
-            (r'[-]', '-'),  # 特别注意减号的处理
+            (r'[-]', '-'),
             (r'[*]', '*'),
-            (r'[/]', '/'),  # 特别注意除号的处理
+            (r'[/]', '/'),
             
             # 其他运算符和符号
-            (r'[=<>!&|(){}[\];,.]', lambda m: m.group(0)),
+            (r'[=<>!&|()[\],.]', lambda m: m.group(0)),
             (r'\s+', None)  # 忽略空白字符
         ]
         
@@ -480,14 +481,14 @@ class LR1Parser:
             print(f"检测到特殊字符: 输入='{input_string}'")
         else:
             debug_special = False
-            
+                
         while pos < len(input_string):
             matched = False
-            
+                
             for pattern, token_type in patterns:
                 regex = re.compile(pattern)
                 match = regex.match(input_string, pos)
-                
+                    
                 if match:
                     value = match.group(0)
                     if token_type is not None:  # 不忽略
@@ -506,26 +507,30 @@ class LR1Parser:
                     pos = match.end()
                     matched = True
                     break
-            
+                
             if not matched:
                 # 跳过无法识别的字符
                 if debug or (debug_special and input_string[pos] in ['-', '/']):
                     print(f"跳过无法识别的字符: '{input_string[pos]}'")
                 pos += 1
-        
+            
         # 对算术表达式中的token进行额外检查
         has_arithmetic_ops = any(t in ['+', '-', '*', '/'] for t in tokens)
         if has_arithmetic_ops and (debug or debug_special):
             print(f"算术表达式分词结果: {tokens}")
-        
+            
         return tokens
 
 def create_c_grammar(grammar_number):
     """创建C语言文法"""
     grammar = Grammar()
     
+    # 确保所有常用终结符都被注册
+    for terminal in ['+', '-', '*', '/', '=', '<', '>', '==', '!=', '(', ')', '{', '}', ';', ',']:
+        grammar.terminals.add(terminal)
+    
     if grammar_number == 7:  # 简单赋值语句
-        grammar.add_production("S", ["id", "=", "E"])
+        grammar.add_production("S", ["id", "=", "E", ";"])
         grammar.add_production("E", ["E", "+", "T"])
         grammar.add_production("E", ["T"])
         grammar.add_production("T", ["T", "*", "F"])
@@ -536,38 +541,46 @@ def create_c_grammar(grammar_number):
     
     elif grammar_number == 8:  # if语句
         grammar.add_production("S", ["if", "(", "E", ")", "S"])
-        grammar.add_production("S", ["id", "=", "E"])
+        grammar.add_production("S", ["id", "=", "E", ";"])
+        grammar.add_production("S", ["{", "SL", "}"])
+        grammar.add_production("SL", ["S"])
+        grammar.add_production("SL", ["S", "SL"])
         grammar.add_production("E", ["E", "==", "T"])
         grammar.add_production("E", ["T"])
         grammar.add_production("T", ["id"])
         grammar.add_production("T", ["num"])
     
     elif grammar_number == 9:  # 变量声明
-        grammar.add_production("S", ["T", "id"])
+        grammar.add_production("S", ["T", "id", ";"])
+        grammar.add_production("S", ["T", "id", "=", "E", ";"])
         grammar.add_production("T", ["int"])
         grammar.add_production("T", ["float"])
         grammar.add_production("T", ["char"])
+        grammar.add_production("E", ["id"])
+        grammar.add_production("E", ["num"])
     
     elif grammar_number == 10:  # while循环
         grammar.add_production("S", ["while", "(", "E", ")", "S"])
-        grammar.add_production("S", ["id", "=", "E"])
+        grammar.add_production("S", ["id", "=", "E", ";"])
+        grammar.add_production("S", ["{", "SL", "}"])
+        grammar.add_production("SL", ["S"])
+        grammar.add_production("SL", ["S", "SL"])
         grammar.add_production("E", ["E", "<", "T"])
         grammar.add_production("E", ["T"])
-        grammar.add_production("T", ["T", "+", "F"])  # 添加加法支持
+        grammar.add_production("T", ["T", "+", "F"])
         grammar.add_production("T", ["F"])
         grammar.add_production("F", ["id"])
         grammar.add_production("F", ["num"])
     
     elif grammar_number == 11:  # 算术表达式
-        # 修正：按标准算术表达式优先级处理，确保词法分析器对减号和除号正确识别
-        grammar.add_production("E", ["E", "+", "T"])  # 加法
-        grammar.add_production("E", ["E", "-", "T"])  # 减法
+        grammar.add_production("E", ["E", "+", "T"])
+        grammar.add_production("E", ["E", "-", "T"])
         grammar.add_production("E", ["T"])
-        grammar.add_production("T", ["T", "*", "F"])  # 乘法
-        grammar.add_production("T", ["T", "/", "F"])  # 除法
+        grammar.add_production("T", ["T", "*", "F"])
+        grammar.add_production("T", ["T", "/", "F"])
         grammar.add_production("T", ["F"])
-        grammar.add_production("F", ["(", "E", ")"])  # 括号
-        grammar.add_production("F", ["id"])           # 标识符
-        grammar.add_production("F", ["num"])          # 数字
+        grammar.add_production("F", ["(", "E", ")"])
+        grammar.add_production("F", ["id"])
+        grammar.add_production("F", ["num"])
     
     return grammar

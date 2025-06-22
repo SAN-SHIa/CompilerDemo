@@ -39,7 +39,7 @@ wheels/
 
 # 项目特定
 outcome/*
-
+selfImplement/outcome/*
 # 临时文件
 .tmp/
 tmp/

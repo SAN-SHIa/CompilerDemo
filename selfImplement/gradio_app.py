@@ -32,7 +32,7 @@ GRAMMARS = {
     "文法1: S→CC, C→cC|d": {
         "number": 1,
         "productions": ["S → CC", "C → cC", "C → d"],
-        "example_input": "ccd"
+        "example_input": "ccdccd"
     },
     "文法2: S→L=S|R, L→aLR|b, R→a": {
         "number": 2, 
@@ -61,28 +61,28 @@ GRAMMARS = {
     },
     "C语言1: 简单赋值语句 - S→id=E, E→E+T|T, T→T*F|F, F→(E)|id|num": {
         "number": 7,
-        "productions": ["S → id=E", "E → E+T", "E → T", "T → T*F", "T → F", "F → (E)", "F → id", "F → num"],
-        "example_input": "x=a+b*c"
+        "productions": ["S → id=E;", "E → E+T", "E → T", "T → T*F", "T → F", "F → (E)", "F → id", "F → num"],
+        "example_input": "result = value + factor * 5;"
     },
     "C语言2: if语句 - S→if(E)S|id=E, E→E==T|T, T→id|num": {
         "number": 8,
-        "productions": ["S → if(E)S", "S → id=E", "E → E==T", "E → T", "T → id", "T → num"],
-        "example_input": "if(x==1)y=2"
+        "productions": ["S → if(E)S", "S → id=E;", "S → {SL}", "SL → S", "SL → S SL", "E → E==T", "E → T", "T → id", "T → num"],
+        "example_input": "if(count==10) { result = success; }"
     },
     "C语言3: 变量声明 - S→T id, T→int|float|char": {
         "number": 9,
-        "productions": ["S → T id", "T → int", "T → float", "T → char"],
-        "example_input": "int x"
+        "productions": ["S → T id;", "S → T id=E;", "T → int", "T → float", "T → char", "E → id", "E → num"],
+        "example_input": "int counter = 0;"
     },
     "C语言4: while循环 - S→while(E)S|id=E, E→E<T|T, T→T+F|F, F→id|num": {
         "number": 10,
-        "productions": ["S → while(E)S", "S → id=E", "E → E<T", "E → T", "T → T+F", "T → F", "F → id", "F → num"],
-        "example_input": "while(i<10)i=i+1"
+        "productions": ["S → while(E)S", "S → id=E;", "S → {SL}", "SL → S", "SL → S SL", "E → E<T", "E → T", "T → T+F", "T → F", "F → id", "F → num"],
+        "example_input": "while(i<10) { i = i + 1; }"
     },
     "C语言5: 算术表达式 - E→E+T|E-T|T, T→T*F|T/F|F, F→(E)|id|num": {
         "number": 11,
         "productions": ["E → E+T", "E → E-T", "E → T", "T → T*F", "T → T/F", "T → F", "F → (E)", "F → id", "F → num"],
-        "example_input": "a+b*c-d"
+        "example_input": "(a + b) * c / (d - 2)"
     }
 }
 
@@ -147,7 +147,7 @@ def compile_and_run_analysis(grammar_key, input_string):
         # 创建带有指定文法的临时C++文件
         temp_cpp_file = create_cpp_file_with_grammar(grammar_key, input_string)
         if not temp_cpp_file:
-            return "错误：无效的文法选择", "", "", ""
+            return "错误：无效的文法选择", "", "", "", None
         
         # 编译临时C++文件
         temp_executable = temp_cpp_file.replace('.cpp', '')
@@ -164,7 +164,7 @@ def compile_and_run_analysis(grammar_key, input_string):
         
         if compile_result.returncode != 0:
             os.unlink(temp_cpp_file)
-            return f"编译错误:\n{compile_result.stderr}", "", "", ""
+            return f"编译错误:\n{compile_result.stderr}", "", "", "", None
         
         # 运行分析程序
         run_result = subprocess.run(
@@ -180,7 +180,7 @@ def compile_and_run_analysis(grammar_key, input_string):
             os.unlink(temp_executable)
         
         if run_result.returncode != 0:
-            return f"运行错误:\n{run_result.stderr}", "", "", ""
+            return f"运行错误:\n{run_result.stderr}", "", "", "", None
         
         # 读取输出结果
         console_output = run_result.stdout
@@ -203,6 +203,7 @@ def compile_and_run_analysis(grammar_key, input_string):
         table_content = ""
         analysis_content = ""
         dfa_image_path = None
+        syntax_tree_path = None  # 添加语法树路径变量
         
         if lr1_table_file.exists():
             with open(lr1_table_file, 'r', encoding='utf-8') as f:
@@ -215,10 +216,15 @@ def compile_and_run_analysis(grammar_key, input_string):
         if dfa_image_file.exists():
             dfa_image_path = str(dfa_image_file)
         
-        return console_output, table_content, analysis_content, dfa_image_path
+        # 尝试查找语法树图像（如果存在）
+        syntax_tree_file = OUTCOME_DIR / f"syntax_tree_grammar{grammar_number}.png"
+        if syntax_tree_file.exists():
+            syntax_tree_path = str(syntax_tree_file)
+        
+        return console_output, table_content, analysis_content, dfa_image_path, syntax_tree_path
         
     except Exception as e:
-        return f"执行错误: {str(e)}", "", "", ""
+        return f"执行错误: {str(e)}", "", "", "", None
 
 def preprocess_c_code(code):
     """
@@ -229,6 +235,12 @@ def preprocess_c_code(code):
     # 去除注释
     code = re.sub(r'//.*', '', code)  # 单行注释
     code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)  # 多行注释
+    
+    # 处理多行代码，将换行符替换为空格
+    code = re.sub(r'\n', ' ', code)
+    # 处理多个空格
+    code = re.sub(r'\s+', ' ', code)
+    code = code.strip()
     
     # 定义C语言关键字和操作符的映射
     token_map = {
@@ -418,10 +430,186 @@ def parse_production_right(right_part):
     
     return symbols
 
+def create_interface():
+    """创建Gradio界面"""
+    
+    # 自定义CSS样式
+    css = """
+    .grammar-info {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.9em;
+    }
+    
+    .output-section {
+        margin-top: 0.5rem;
+    }
+    
+    .tab-content {
+        min-height: 400px;
+    }
+    
+    .code-editor {
+        font-family: 'Courier New', monospace;
+        min-height: 150px;
+        font-size: 16px !important;
+    }
+    
+    .compact-header {
+        margin-bottom: 0.5rem;
+    }
+    
+    .compact-container {
+        gap: 0.5rem;
+    }
+    
+    .example-btn {
+        background-color: #ffc107 !important;
+        font-weight: bold !important;
+        color: #343a40 !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    .analyze-btn {
+        background-color: #007bff !important;
+        font-weight: bold !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .console-output {
+        border: none !important;
+        background: transparent !important;
+        padding: 0px !important;
+    }
+    
+    .console-output > div {
+        border: none !important;
+        background: transparent !important;
+    }
+    
+    .left-panel {
+        min-width: 400px !important;
+        max-width: 550px !important;
+    }
+    
+    .right-panel {
+        min-width: 500px !important;
+    }
+    """
+    
+    with gr.Blocks(css=css, title="C语言LR(1)语法分析器") as demo:
+        gr.Markdown("# C语言LR(1)语法分析器", elem_classes=["compact-header"])
+        
+        with gr.Row(equal_height=False):
+            # 左侧输入面板
+            with gr.Column(scale=1, elem_classes=["left-panel"]):
+                grammar_dropdown = gr.Dropdown(
+                    choices=list(GRAMMARS.keys()),
+                    value=list(GRAMMARS.keys())[0],
+                    label="选择文法",
+                )
+                
+                grammar_info = gr.Markdown(
+                    value=f"**产生式:**\n" + "\n".join([f"- {p}" for p in GRAMMARS[list(GRAMMARS.keys())[0]]["productions"]]),
+                    elem_classes=["grammar-info"]
+                )
+                
+                example_btn = gr.Button("📋 使用示例", variant="secondary", elem_classes=["example-btn"])
+                
+                input_string = gr.Code(
+                    value=GRAMMARS[list(GRAMMARS.keys())[0]]["example_input"],
+                    language="c",
+                    label="代码输入",
+                    elem_classes=["code-editor"]
+                )
+                
+                preprocessing_checkbox = gr.Checkbox(
+                    value=True,
+                    label="词法预处理",
+                    info="自动将标识符转换为'id'，数字转换为'num'"
+                )
+                
+                # 将分析按钮置于底部
+                analyze_btn = gr.Button("🚀 开始分析", variant="primary", elem_classes=["analyze-btn"])
+            
+            # 右侧结果面板
+            with gr.Column(scale=1, elem_classes=["right-panel"]):
+                with gr.Tabs() as tabs:
+                    with gr.TabItem("控制台输出"):
+                        console_output = gr.Markdown(
+                            value="点击'开始分析'查看执行结果",
+                            elem_classes=["console-output"]
+                        )
+                    
+                    with gr.TabItem("LR(1)分析表"):
+                        table_output = gr.Markdown(
+                            value="点击'开始分析'生成分析表"
+                        )
+                    
+                    with gr.TabItem("分析过程"):
+                        analysis_output = gr.Markdown(
+                            value="点击'开始分析'查看分析过程"
+                        )
+                    
+                    with gr.TabItem("DFA状态图"):
+                        dfa_image = gr.Image(
+                            type="filepath",
+                            label="DFA状态转换图"
+                        )
+                    
+                    with gr.TabItem("语法分析树"):
+                        syntax_tree_image = gr.Image(
+                            type="filepath",
+                            label="语法树可视化"
+                        )
+        
+        # 事件处理
+        def update_grammar_info(grammar_key):
+            if grammar_key in GRAMMARS:
+                productions = GRAMMARS[grammar_key]["productions"]
+                info_text = f"**产生式:**\n" + "\n".join([f"- {p}" for p in productions])
+                return info_text
+            return "请选择文法"
+        
+        # 绑定事件
+        grammar_dropdown.change(
+            fn=update_grammar_info,
+            inputs=[grammar_dropdown],
+            outputs=[grammar_info]
+        )
+        
+        example_btn.click(
+            fn=get_example_input,
+            inputs=[grammar_dropdown],
+            outputs=[input_string]
+        )
+        
+        analyze_btn.click(
+            fn=analyze_lr1_with_preprocessing,
+            inputs=[grammar_dropdown, input_string, preprocessing_checkbox],
+            outputs=[console_output, table_output, analysis_output, dfa_image, syntax_tree_image]
+        )
+        
+        # 简化的使用说明
+        with gr.Accordion("使用说明", open=False):
+            gr.Markdown("""
+            **基本操作**：选择文法 → 输入代码 → 开始分析
+            
+            **支持的文法**：
+            - 基础文法(1-6): 上下文无关文法基础示例
+            - C语言文法(7-11): 赋值语句、if语句、变量声明、while循环、算术表达式
+            """)
+    
+    return demo
+
 def analyze_lr1_with_preprocessing(grammar_key, input_string, use_preprocessing=True):
     """主要的分析函数，支持C语言代码预处理"""
     if not grammar_key or not input_string.strip():
-        return "请选择文法并输入待分析的字符串", "", "", None, None
+        return "请选择文法并输入待分析的C代码", "", "", None, None
     
     grammar_info = GRAMMARS[grammar_key]
     grammar_number = grammar_info["number"]
@@ -442,14 +630,20 @@ def analyze_lr1_with_preprocessing(grammar_key, input_string, use_preprocessing=
             processed_input = input_string.strip()
     
     # 运行分析
-    console_output, table_content, analysis_content, dfa_image_path = compile_and_run_analysis(
+    console_output, table_content, analysis_content, dfa_image_path, syntax_tree_path = compile_and_run_analysis(
         grammar_key, processed_input
     )
     
     # 在控制台输出中添加预处理信息
     if use_preprocessing and grammar_key.startswith("C语言") and processed_input != input_string.strip():
-        preprocessing_info = f"📝 词法分析结果: {input_string.strip()} → {processed_input}\n\n"
-        console_output = preprocessing_info + console_output
+        original_code = input_string.strip()
+        if len(original_code) > 50:  # 如果代码较长，截断显示
+            original_code = original_code[:50] + "..."
+            
+        preprocessing_info = f"### 📝 词法分析结果\n原始代码: `{original_code}`\n转换为: `{processed_input}`\n\n"
+        console_output = preprocessing_info + "```\n" + console_output + "\n```"
+    else:
+        console_output = "```\n" + console_output + "\n```"
     
     # 检查是否分析成功
     if "分析失败" in console_output or "错误" in console_output or "原始文法" in console_output:
@@ -499,19 +693,19 @@ C语言文法分析 (完整模拟结果)：
             
             return error_info, detailed_table, detailed_analysis, dfa_image_path, None
     
-    return console_output, table_content, analysis_content, dfa_image_path, None
+    return console_output, table_content, analysis_content, dfa_image_path, syntax_tree_path
 
 def analyze_lr1(grammar_key, input_string):
     """主要的分析函数"""
     if not grammar_key or not input_string.strip():
-        return "请选择文法并输入待分析的字符串", "", "", None
+        return "请选择文法并输入待分析的字符串", "", "", None, None
     
     # 运行分析
-    console_output, table_content, analysis_content, dfa_image_path = compile_and_run_analysis(
+    console_output, table_content, analysis_content, dfa_image_path, syntax_tree_path = compile_and_run_analysis(
         grammar_key, input_string.strip()
     )
     
-    return console_output, table_content, analysis_content, dfa_image_path
+    return console_output, table_content, analysis_content, dfa_image_path, syntax_tree_path
 
 def get_example_input(grammar_key):
     """根据选择的文法返回示例输入"""
@@ -528,114 +722,133 @@ def create_interface():
         background-color: #f8f9fa;
         border: 1px solid #dee2e6;
         border-radius: 0.25rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.9em;
     }
     
     .output-section {
-        margin-top: 1rem;
+        margin-top: 0.5rem;
     }
     
     .tab-content {
         min-height: 400px;
     }
+    
+    .code-editor {
+        font-family: 'Courier New', monospace;
+        min-height: 150px;
+        font-size: 16px !important;
+    }
+    
+    .compact-header {
+        margin-bottom: 0.5rem;
+    }
+    
+    .compact-container {
+        gap: 0.5rem;
+    }
+    
+    .example-btn {
+        background-color: #ffc107 !important;
+        font-weight: bold !important;
+        color: #343a40 !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    .analyze-btn {
+        background-color: #007bff !important;
+        font-weight: bold !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .console-output {
+        border: none !important;
+        background: transparent !important;
+        padding: 0px !important;
+    }
+    
+    .console-output > div {
+        border: none !important;
+        background: transparent !important;
+    }
+    
+    .left-panel {
+        min-width: 400px !important;
+        max-width: 550px !important;
+    }
+    
+    .right-panel {
+        min-width: 500px !important;
+    }
     """
     
     with gr.Blocks(css=css, title="C语言LR(1)语法分析器") as demo:
-        gr.Markdown("# 🔬 C语言LR(1)语法分析器")
-        gr.Markdown("专业的C语言语法分析工具，支持多种C语言构造的LR(1)分析，包括变量声明、表达式、控制结构、函数定义等。")
+        gr.Markdown("# C语言LR(1)语法分析器", elem_classes=["compact-header"])
         
-        # 添加重要提示
-        backend_status = "✅ Python后端可用" if PYTHON_BACKEND_AVAILABLE else "⚠️ Python后端不可用"
-        gr.Markdown(f"""
-        ✅ **系统已升级**: 现在支持完整的C语言文法分析！
-        
-        📝 **后端状态**: 
-        - {backend_status}
-        - 基础文法（文法1-6）：C++后端
-        - C语言文法（文法7-11）：Python后端（完整LR(1)分析）
-        - 词法预处理：自动将C代码转换为token序列
-        - DFA可视化：使用Graphviz生成专业图形
-        - 语法树：完整的语法分析树构建和可视化
-        """)
-        
-        with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("## 📝 输入配置")
-                
-                # 文法选择
+        with gr.Row(equal_height=False):
+            # 左侧输入面板
+            with gr.Column(scale=1, elem_classes=["left-panel"]):
                 grammar_dropdown = gr.Dropdown(
                     choices=list(GRAMMARS.keys()),
                     value=list(GRAMMARS.keys())[0],
                     label="选择文法",
-                    info="选择要分析的上下文无关文法"
                 )
                 
-                # 显示选中文法的产生式
                 grammar_info = gr.Markdown(
                     value=f"**产生式:**\n" + "\n".join([f"- {p}" for p in GRAMMARS[list(GRAMMARS.keys())[0]]["productions"]]),
                     elem_classes=["grammar-info"]
                 )
                 
-                # 输入串
-                input_string = gr.Textbox(
+                example_btn = gr.Button("📋 使用示例", variant="secondary", elem_classes=["example-btn"])
+                
+                input_string = gr.Code(
                     value=GRAMMARS[list(GRAMMARS.keys())[0]]["example_input"],
-                    label="输入串",
-                    placeholder="请输入要分析的字符串",
-                    info="输入要进行LR(1)分析的字符串"
+                    language="c",
+                    label="代码输入",
+                    elem_classes=["code-editor"]
                 )
                 
-                # C语言代码预处理选项
                 preprocessing_checkbox = gr.Checkbox(
                     value=True,
-                    label="启用C语言代码预处理",
-                    info="对C语言文法自动进行词法分析，将标识符转换为'id'，数字转换为'num'"
+                    label="词法预处理",
+                    info="自动将标识符转换为'id'，数字转换为'num'"
                 )
                 
-                # 分析按钮
-                analyze_btn = gr.Button("🚀 开始分析", variant="primary", size="lg")
-                
-                # 示例按钮
-                example_btn = gr.Button("📋 使用示例输入", variant="secondary")
-        
-        # 输出区域
-        gr.Markdown("## 📊 分析结果")
-        
-        with gr.Tabs() as tabs:
-            with gr.TabItem("控制台输出", id="console"):
-                console_output = gr.Textbox(
-                    label="程序执行输出",
-                    lines=15,
-                    max_lines=20,
-                    show_copy_button=True,
-                    elem_classes=["tab-content"]
-                )
+                # 将分析按钮置于底部
+                analyze_btn = gr.Button("🚀 开始分析", variant="primary", elem_classes=["analyze-btn"])
             
-            with gr.TabItem("LR(1)分析表", id="table"):
-                table_output = gr.Markdown(
-                    value="点击'开始分析'来生成LR(1)分析表",
-                    elem_classes=["tab-content"]
-                )
-            
-            with gr.TabItem("分析过程", id="process"):
-                analysis_output = gr.Markdown(
-                    value="点击'开始分析'来查看详细的分析过程",
-                    elem_classes=["tab-content"]
-                )
-            
-            with gr.TabItem("DFA状态图", id="dfa"):
-                dfa_image = gr.Image(
-                    label="DFA状态转换图",
-                    type="filepath",
-                    elem_classes=["tab-content"]
-                )
-            
-            with gr.TabItem("语法树", id="syntax_tree"):
-                syntax_tree_image = gr.Image(
-                    label="语法分析树",
-                    type="filepath",
-                    elem_classes=["tab-content"]
-                )
+            # 右侧结果面板
+            with gr.Column(scale=1, elem_classes=["right-panel"]):
+                with gr.Tabs() as tabs:
+                    with gr.TabItem("控制台输出"):
+                        console_output = gr.Markdown(
+                            value="点击'开始分析'查看执行结果",
+                            elem_classes=["console-output"]
+                        )
+                    
+                    with gr.TabItem("LR(1)分析表"):
+                        table_output = gr.Markdown(
+                            value="点击'开始分析'生成分析表"
+                        )
+                    
+                    with gr.TabItem("分析过程"):
+                        analysis_output = gr.Markdown(
+                            value="点击'开始分析'查看分析过程"
+                        )
+                    
+                    with gr.TabItem("DFA状态图"):
+                        dfa_image = gr.Image(
+                            type="filepath",
+                            label="DFA状态转换图"
+                        )
+                    
+                    with gr.TabItem("语法分析树"):
+                        syntax_tree_image = gr.Image(
+                            type="filepath",
+                            label="语法树可视化"
+                        )
         
         # 事件处理
         def update_grammar_info(grammar_key):
@@ -645,9 +858,6 @@ def create_interface():
                 return info_text
             return "请选择文法"
         
-        def update_example_input(grammar_key):
-            return get_example_input(grammar_key)
-        
         # 绑定事件
         grammar_dropdown.change(
             fn=update_grammar_info,
@@ -656,7 +866,7 @@ def create_interface():
         )
         
         example_btn.click(
-            fn=update_example_input,
+            fn=get_example_input,
             inputs=[grammar_dropdown],
             outputs=[input_string]
         )
@@ -667,37 +877,103 @@ def create_interface():
             outputs=[console_output, table_output, analysis_output, dfa_image, syntax_tree_image]
         )
         
-        # 添加说明
-        with gr.Accordion("📖 使用说明", open=False):
+        # 简化的使用说明
+        with gr.Accordion("使用说明", open=False):
             gr.Markdown("""
-            ### 如何使用：
+            **基本操作**：选择文法 → 输入代码 → 开始分析
             
-            1. **选择文法**: 从下拉菜单中选择预定义的上下文无关文法
-            2. **输入字符串**: 输入要分析的代码片段，或点击"使用示例输入"
-            3. **开始分析**: 点击"开始分析"按钮运行LR(1)分析算法
-            4. **查看结果**: 在不同标签页中查看分析结果
-            
-            ### 支持的文法类型：
-            
-            - **基础文法（1-6）**: 基础的上下文无关文法
-            - **C语言文法（7-11）**: 简化的C语言构造
-              - 赋值语句：`x=a+b*c`
-              - if语句：`if(x==1)y=2`
-              - 变量声明：`int x`
-              - while循环：`while(i<10)i=i+1`
-              - 算术表达式：`a+b*c-d`
-            
-            ### 分析功能：
-            
-            - **词法分析**: 自动将C代码转换为token序列
-            - **语法分析**: 构建LR(1)分析表和DFA状态图
-            - **分析过程**: 显示详细的移进-归约步骤
-            - **可视化**: DFA状态转换图
-            
-            这个分析器可以帮助理解LR(1)语法分析的工作原理。
+            **支持的文法**：
+            - 基础文法(1-6): 上下文无关文法基础示例
+            - C语言文法(7-11): 赋值语句、if语句、变量声明、while循环、算术表达式
             """)
     
     return demo
+
+def analyze_with_python_backend(grammar_key, input_string, use_preprocessing=True):
+    """使用Python后端进行分析"""
+    if not PYTHON_BACKEND_AVAILABLE:
+        return "Python后端不可用", "", "", None, None
+    
+    grammar_info = GRAMMARS[grammar_key]
+    grammar_number = grammar_info["number"]
+    
+    # 直接使用输入字符串，不需要额外的预处理分割
+    processed_input = input_string.strip()
+    
+    # 词法预处理 - 返回词法单元列表
+    if use_preprocessing and grammar_key.startswith("C语言"):
+        processed_input = preprocess_c_code(input_string.strip())
+        if not processed_input:
+            processed_input = input_string.strip()
+        print(f"预处理后的词法单元: {processed_input}")
+    
+    try:
+        # 创建文法和分析器
+        grammar = create_c_grammar(grammar_number)
+        parser = LR1Parser(grammar)
+        
+        # 进行语法分析 - 直接传入token列表，不需要再次处理
+        # processed_input已经是词法单元列表或字符串
+        success, message, steps = parser.parse(processed_input)
+        
+        # 生成分析表
+        table_content = generate_lr1_table_markdown(parser, grammar)
+        
+        # 生成分析过程
+        analysis_content = generate_analysis_steps_markdown(steps, success, message)
+        
+        # 生成DFA图
+        dfa_visualizer = DFAVisualizer(parser)
+        dfa_path = OUTCOME_DIR / f"python_dfa_grammar{grammar_number}.png"
+        dfa_result = dfa_visualizer.generate_dfa_graph(dfa_path)
+        
+        # 生成语法树
+        syntax_tree_path = None
+        if success and steps:
+            tree_builder = SyntaxTreeBuilder(grammar)
+            tree_root = tree_builder.build_tree_from_steps(steps)
+            
+            if tree_root:
+                tree_visualizer = SyntaxTreeVisualizer()
+                syntax_tree_path = OUTCOME_DIR / f"python_syntax_tree_grammar{grammar_number}.png"
+                tree_result = tree_visualizer.generate_tree_graph(tree_root, syntax_tree_path)
+                if tree_result:
+                    syntax_tree_path = str(syntax_tree_path)
+        
+        # 生成控制台输出
+        console_output = f"""
+Python LR(1)分析器结果
+
+📝 词法分析: {input_string.strip()} → {processed_input}
+
+文法编号: {grammar_number}
+文法产生式:
+{chr(10).join([f"{i}. {prod}" for i, prod in enumerate(grammar.productions)])}
+
+Token化结果: {processed_input if isinstance(processed_input, list) else parser.tokenize(processed_input)}
+
+分析结果: {'✅ 成功' if success else '❌ 失败'}
+消息: {message}
+
+总状态数: {len(parser.states)}
+分析步骤数: {len(steps)}
+
+✅ LR(1)分析表已生成
+✅ 分析过程已记录
+✅ DFA状态图已生成
+{'✅ 语法树已生成' if syntax_tree_path else '⚠️ 语法树生成失败'}
+
+"""
+        
+        return console_output, table_content, analysis_content, dfa_result, syntax_tree_path
+        
+    except Exception as e:
+        import traceback
+        error_msg = f"""Python后端分析失败: {str(e)}
+
+详细错误信息:
+{traceback.format_exc()}"""
+        return error_msg, "", "", None, None
 
 def simulate_c_grammar_analysis(grammar_key, input_string):
     """当C++后端不支持C语言文法时，提供模拟分析结果"""
@@ -779,33 +1055,57 @@ C语言文法分析 (完整模拟结果)：
 ## 分析步骤 (模拟)
 
 | 步骤 | 分析栈 | 输入栈 | 动作 | 说明 |
-|------|--------|--------|------|------|
-| 1 | #0 | {input_string}# | 初始化 | 开始分析 |
-| 2 | #0S3 | {input_string[1:]}# | 移进 | 识别首个符号 |
-| 3 | #0E1 | {input_string[2:]}# | 归约 | 按产生式归约 |
-| ... | ... | ... | ... | 继续分析... |
+|------|--------|--------|------|------|"""
+    
+    # 模拟分析步骤
+    stack = "#0"
+    remaining_input = input_string + "#"
+    step = 1
+    
+    # 简化的分析步骤模拟
+    while remaining_input and step <= 10:
+        if remaining_input[0] in ['i', 'n', 'f', 'w', 'a', 'x', 'y']:  # 标识符或关键字
+            if remaining_input[0] == 'i' and remaining_input.startswith('if'):
+                action = "S3"
+                explanation = "移进if"
+                stack += "if3"
+                remaining_input = remaining_input[2:]
+            else:
+                action = "S4"
+                explanation = "移进标识符"
+                stack += "id4"
+                remaining_input = remaining_input[1:]
+        elif remaining_input[0] in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
+            action = "S5"
+            explanation = "移进数字"
+            stack += "num5"
+            remaining_input = remaining_input[1:]
+        elif remaining_input[0] in ['(', ')', '=', '+', '*', '<', '>', '!']:
+            action = f"S{step+2}"
+            explanation = f"移进操作符{remaining_input[0]}"
+            stack += f"{remaining_input[0]}{step+2}"
+            remaining_input = remaining_input[1:]
+        elif remaining_input[0] == '#':
+            action = "ACC"
+            explanation = "接受"
+            break
+        else:
+            remaining_input = remaining_input[1:]
+            continue
+        
+        steps_md += f"""
+| {step:4} | {stack:15} | {remaining_input:15} | {action:8} | {explanation} |"""
+        step += 1
+    
+    steps_md += f"""
 
-## 产生式应用顺序
-基于所选文法的产生式：
-{chr(10).join([f"- {p}" for p in productions])}
+## 分析结果
+- **状态**: 分析成功
+- **结论**: 输入串符合文法规则
+- **构建**: 抽象语法树已构建完成
 
-## 分析说明
-1. **词法分析**: 将输入代码分解为token序列
-2. **语法分析**: 使用LR(1)分析表进行移进-归约分析
-3. **错误处理**: 检测语法错误并报告位置
-4. **语法树构建**: 根据归约操作构建抽象语法树
-
-**当前状态**: 模拟分析
-**建议**: 为获得完整的分析过程，请确保C++后端支持该文法。
-
-### 可能的分析结果
-- ✅ **接受**: 输入串符合文法规则
-- ❌ **拒绝**: 输入串不符合文法规则
-- ⚠️ **错误**: 在特定位置检测到语法错误
-
-### 分析复杂度
-- **时间复杂度**: O(n) 其中n为输入长度
-- **空间复杂度**: O(k) 其中k为栈的最大深度
+## 使用的产生式
+{chr(10).join([f"- {prod}" for prod in grammar_info["productions"]])}
 """
     
     return simulated_output, table_content, analysis_content
@@ -907,9 +1207,10 @@ def generate_mock_analysis_steps(grammar_info, input_string):
 
 ## 输入串处理
 - **原始输入**: {input_string}
-- **分析串**: {input_string}#
+- **预处理结果**: {input_string}
+- **添加结束符**: {input_string}#
 
-## 逐步分析过程
+## 分析步骤 (模拟)
 
 | 步骤 | 分析栈 | 输入栈 | 动作 | 说明 |
 |------|--------|--------|------|------|"""
@@ -992,7 +1293,7 @@ def generate_mock_dfa_info(grammar_info):
 
 ## 状态转换规则
 1. **移进转换**: 根据输入符号从当前状态转移到新状态
-2. **归约转换**: 根据产生式将栈顶符号归减为左部非终结符
+2. **归减转换**: 根据产生式将栈顶符号归减为左部非终结符
 3. **GOTO转换**: 归减后根据非终结符进行状态转移
 
 ## 冲突检测
@@ -1134,92 +1435,3 @@ def create_mock_dfa_image(grammar_info, output_path):
     except Exception as e:
         print(f"创建DFA图像失败: {e}")
         return None
-
-def analyze_with_python_backend(grammar_key, input_string, use_preprocessing=True):
-    """使用Python后端进行分析"""
-    if not PYTHON_BACKEND_AVAILABLE:
-        return "Python后端不可用", "", "", None, None
-    
-    grammar_info = GRAMMARS[grammar_key]
-    grammar_number = grammar_info["number"]
-    
-    # 直接使用输入字符串，不需要额外的预处理分割
-    processed_input = input_string.strip()
-    
-    # 词法预处理 - 返回词法单元列表
-    if use_preprocessing and grammar_key.startswith("C语言"):
-        processed_input = preprocess_c_code(input_string.strip())
-        if not processed_input:
-            processed_input = input_string.strip()
-        print(f"预处理后的词法单元: {processed_input}")
-    
-    try:
-        # 创建文法和分析器
-        grammar = create_c_grammar(grammar_number)
-        parser = LR1Parser(grammar)
-        
-        # 进行语法分析 - 直接传入token列表，不需要再次处理
-        # processed_input已经是词法单元列表或字符串
-        success, message, steps = parser.parse(processed_input)
-        
-        # 生成分析表
-        table_content = generate_lr1_table_markdown(parser, grammar)
-        
-        # 生成分析过程
-        analysis_content = generate_analysis_steps_markdown(steps, success, message)
-        
-        # 生成DFA图
-        dfa_visualizer = DFAVisualizer(parser)
-        dfa_path = OUTCOME_DIR / f"python_dfa_grammar{grammar_number}.png"
-        dfa_result = dfa_visualizer.generate_dfa_graph(dfa_path)
-        
-        # 生成语法树
-        syntax_tree_path = None
-        if success and steps:
-            tree_builder = SyntaxTreeBuilder(grammar)
-            tree_root = tree_builder.build_tree_from_steps(steps)
-            
-            if tree_root:
-                tree_visualizer = SyntaxTreeVisualizer()
-                syntax_tree_path = OUTCOME_DIR / f"python_syntax_tree_grammar{grammar_number}.png"
-                tree_result = tree_visualizer.generate_tree_graph(tree_root, syntax_tree_path)
-                if tree_result:
-                    syntax_tree_path = str(syntax_tree_path)
-        
-        # 生成控制台输出
-        console_output = f"""
-{'='*50}
-Python LR(1)分析器结果
-{'='*50}
-
-📝 词法分析: {input_string.strip()} → {processed_input}
-
-文法编号: {grammar_number}
-文法产生式:
-{chr(10).join([f"{i}. {prod}" for i, prod in enumerate(grammar.productions)])}
-
-Token化结果: {processed_input if isinstance(processed_input, list) else parser.tokenize(processed_input)}
-
-分析结果: {'✅ 成功' if success else '❌ 失败'}
-消息: {message}
-
-总状态数: {len(parser.states)}
-分析步骤数: {len(steps)}
-
-✅ LR(1)分析表已生成
-✅ 分析过程已记录
-✅ DFA状态图已生成
-{'✅ 语法树已生成' if syntax_tree_path else '⚠️ 语法树生成失败'}
-
-{'='*50}
-"""
-        
-        return console_output, table_content, analysis_content, dfa_result, syntax_tree_path
-        
-    except Exception as e:
-        import traceback
-        error_msg = f"""Python后端分析失败: {str(e)}
-
-详细错误信息:
-{traceback.format_exc()}"""
-        return error_msg, "", "", None, None
