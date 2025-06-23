@@ -333,7 +333,8 @@ class LR1Parser:
             tokens = self.tokenize(input_string)
         else:
             # 已经是token列表，直接使用
-            tokens = input_string
+            # 确保tokens是列表类型，而不是元组
+            tokens = list(input_string) if isinstance(input_string, tuple) else input_string
             
             # 调试输出处理的tokens
             print(f"直接传入的词法单元: {tokens}")
