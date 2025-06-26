@@ -1,0 +1,28 @@
+CC = gcc
+CFLAGS = -g -Wall -Wno-unused-function
+LEX = flex
+YACC = bison -d
+RM = del /Q
+
+all: compiler.exe
+
+compiler.exe: lex.yy.c parser.tab.c ast.c symbol_table.c semantic.c ir.c optimize.c codegen.c interpreter.c
+	$(CC) $(CFLAGS) -o compiler.exe lex.yy.c parser.tab.c ast.c symbol_table.c semantic.c ir.c optimize.c codegen.c interpreter.c
+
+lex.yy.c: lexer.l
+	$(LEX) $<
+
+parser.tab.c parser.tab.h: parser.y
+	$(YACC) $<
+
+# 清理生成的临时文件和输出文件
+clean:
+	$(RM) lex.yy.c
+	$(RM) parser.tab.c
+	$(RM) parser.tab.h
+	$(RM) output.s
+	$(RM) output.c
+	$(RM) output_x64.s
+
+run: compiler.exe
+	compiler.exe test.c
