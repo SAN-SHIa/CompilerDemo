@@ -32,17 +32,17 @@ void set_optimization_level(Optimizer *opt, int level) {
     }
     
     switch (level) {
-        case 3: // -O3: 最高优化
-            opt->optimizations_enabled[OPT_COMMON_SUBEXPRESSION] = true;
+        case 3: // -O3: 最高优化 (暂时禁用)
+            // opt->optimizations_enabled[OPT_COMMON_SUBEXPRESSION] = true;
             // fallthrough
-        case 2: // -O2: 高优化
-            opt->optimizations_enabled[OPT_COPY_PROPAGATION] = true;
-            opt->optimizations_enabled[OPT_DEAD_CODE_ELIMINATION] = true;
+        case 2: // -O2: 高优化 (暂时只启用常量折叠)
+            // opt->optimizations_enabled[OPT_COPY_PROPAGATION] = true;
+            // opt->optimizations_enabled[OPT_DEAD_CODE_ELIMINATION] = true;
             // fallthrough
-        case 1: // -O1: 基本优化
+        case 1: // -O1: 基本优化 (只启用常量折叠)
             opt->optimizations_enabled[OPT_CONSTANT_FOLDING] = true;
-            opt->optimizations_enabled[OPT_CONSTANT_PROPAGATION] = true;
-            opt->optimizations_enabled[OPT_ALGEBRAIC_SIMPLIFICATION] = true;
+            // opt->optimizations_enabled[OPT_CONSTANT_PROPAGATION] = true;
+            // opt->optimizations_enabled[OPT_ALGEBRAIC_SIMPLIFICATION] = true;
             break;
         case 0: // -O0: 无优化
         default:
@@ -59,35 +59,52 @@ void optimize_ir(Optimizer *opt) {
         return;
     }
     
+    // 检查是否有指令可以优化
+    if (!opt->ir_gen || !opt->ir_gen->instructions) {
+        printf("No instructions to optimize\n");
+        return;
+    }
+    
     // 多遍优化，直到没有更多改进
     bool changed = true;
     int pass = 1;
     
-    while (changed && pass <= 5) { // 最多5遍
+    while (changed && pass <= 3) { // 减少到最多3遍，避免过度优化
         changed = false;
         printf("Optimization pass %d:\n", pass);
+        fflush(stdout); // 确保输出立即显示
         
         int old_eliminated = opt->eliminated_instructions;
         int old_folded = opt->folded_constants;
         int old_propagated = opt->propagated_constants;
         
         if (opt->optimizations_enabled[OPT_CONSTANT_FOLDING]) {
+            printf("  Running constant folding...\n");
+            fflush(stdout);
             constant_folding(opt);
         }
         
         if (opt->optimizations_enabled[OPT_CONSTANT_PROPAGATION]) {
+            printf("  Running constant propagation...\n");
+            fflush(stdout);
             constant_propagation(opt);
         }
         
         if (opt->optimizations_enabled[OPT_ALGEBRAIC_SIMPLIFICATION]) {
+            printf("  Running algebraic simplification...\n");
+            fflush(stdout);
             algebraic_simplification(opt);
         }
         
         if (opt->optimizations_enabled[OPT_COPY_PROPAGATION]) {
+            printf("  Running copy propagation...\n");
+            fflush(stdout);
             copy_propagation(opt);
         }
         
         if (opt->optimizations_enabled[OPT_DEAD_CODE_ELIMINATION]) {
+            printf("  Running dead code elimination...\n");
+            fflush(stdout);
             dead_code_elimination(opt);
         }
         
@@ -118,8 +135,7 @@ void constant_folding(Optimizer *opt) {
         
         switch (instr->opcode) {
             case IR_LOAD_CONST:
-            case IR_LOAD:
-                if (instr->operand1->type == OPERAND_CONST) {
+                if (instr->operand1 && instr->operand1->type == OPERAND_CONST && instr->result) {
                     ConstantValue value;
                     if (instr->operand1->data_type == TYPE_INT) {
                         value = create_int_constant(instr->operand1->const_val.int_val);
@@ -130,6 +146,9 @@ void constant_folding(Optimizer *opt) {
                         add_constant(table, instr->result->temp_id, value);
                     }
                 }
+                break;
+            case IR_LOAD:
+                // IR_LOAD 通常不涉及常量，跳过
                 break;
                 
             case IR_BINOP: {
@@ -215,7 +234,8 @@ void constant_propagation(Optimizer *opt) {
         // 更新常量表
         switch (instr->opcode) {
             case IR_LOAD_CONST:
-                if (instr->result->type == OPERAND_TEMP && instr->operand1->type == OPERAND_CONST) {
+                if (instr->result && instr->result->type == OPERAND_TEMP && 
+                    instr->operand1 && instr->operand1->type == OPERAND_CONST) {
                     ConstantValue value;
                     if (instr->operand1->data_type == TYPE_INT) {
                         value = create_int_constant(instr->operand1->const_val.int_val);
@@ -227,7 +247,8 @@ void constant_propagation(Optimizer *opt) {
                 break;
                 
             case IR_STORE:
-                if (instr->operand1->type == OPERAND_TEMP && instr->result->type == OPERAND_VAR) {
+                if (instr->operand1 && instr->operand1->type == OPERAND_TEMP && 
+                    instr->result && instr->result->type == OPERAND_VAR) {
                     ConstantValue *value = lookup_temp_constant(table, instr->operand1->temp_id);
                     if (value && value->is_constant) {
                         add_var_constant(table, instr->result->var_name, *value);

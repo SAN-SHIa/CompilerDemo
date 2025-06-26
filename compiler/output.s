@@ -5,47 +5,48 @@
 ; Target architecture: Educational pseudo instruction set
 
 FUNC_BEGIN main
-    STORE x, 10
+; Unknown instruction
+    STORE x, t1
     STORE y, 5.50
-    LOAD temp_1, x
-    LOAD temp_2, y
-    CONVERT_FLOAT temp_3, t1
-    MUL temp_4, t3, t2
-    LOAD temp_5, x
-    LOAD temp_6, y
-    CONVERT_FLOAT temp_7, t5
-    SUB temp_8, t7, t6
-    ADD temp_9, t4, t8
-    STORE result, t9
-    LOAD temp_10, result
-    GT temp_11, t10, 40.00
-    JUMPZ t11, L1
-    LOAD temp_12, "Initial result is greater than 40.0\n"
+    LOAD temp_2, x
+    LOAD temp_3, y
+    CONVERT_FLOAT temp_4, t2
+    MUL temp_5, t4, t3
+    LOAD temp_6, x
+    LOAD temp_7, y
+    CONVERT_FLOAT temp_8, t6
+    SUB temp_9, t8, t7
+    ADD temp_10, t5, t9
+    STORE result, t10
+    LOAD temp_11, result
+    GT temp_12, t11, 40.00
+    JUMPZ t12, L1
+    LOAD temp_13, "Initial result is greater than 40.0\n"
 ; Unknown instruction
 ; Unknown instruction
     JUMP L2
 L1:
-    LOAD temp_14, result
-    MUL temp_15, t14, 2.00
-    STORE result, t15
-    LOAD temp_16, "Doubled result: %f\n"
+    LOAD temp_15, result
+    MUL temp_16, t15, 2.00
+    STORE result, t16
+    LOAD temp_17, "Doubled result: %f\n"
 ; Unknown instruction
-    LOAD temp_17, result
+    LOAD temp_18, result
 ; Unknown instruction
 ; Unknown instruction
 L2:
 L3:
-    LOAD temp_19, result
-    LT temp_20, t19, 100.00
-    JUMPZ t20, L4
-    LOAD temp_21, result
-    ADD temp_22, t21, 10.50
-    STORE result, t22
+    LOAD temp_20, result
+    LT temp_21, t20, 100.00
+    JUMPZ t21, L4
+    LOAD temp_22, result
+    ADD temp_23, t22, 10.50
+    STORE result, t23
     JUMP L3
 L4:
-    LOAD temp_23, "Final result: %f\n"
+    LOAD temp_24, "Final result: %f\n"
 ; Unknown instruction
-    LOAD temp_24, result
+    LOAD temp_25, result
 ; Unknown instruction
 ; Unknown instruction
     RETURN 0

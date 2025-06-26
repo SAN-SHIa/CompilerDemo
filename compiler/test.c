@@ -1,8 +1,8 @@
 int main() {
-    int x = 10;
+    int x = 3 + 7;
     float y = 5.5;
     float result;
-    
+
     result = (x * y) + (x - y);
     
     if (result > 40.0) {
