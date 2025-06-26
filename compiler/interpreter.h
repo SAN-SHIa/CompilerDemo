@@ -34,6 +34,9 @@ typedef struct {
     int pc;                  // 程序计数器
     bool running;            // 是否继续执行
     RuntimeValue return_val; // 返回值
+    RuntimeValue *param_stack; // 参数栈
+    int param_count;         // 参数数量
+    int max_params;          // 最大参数数量
 } Interpreter;
 
 // 函数声明
@@ -43,6 +46,7 @@ void execute_ir(Interpreter *interp, IRGenerator *ir_gen);
 void set_variable(Interpreter *interp, const char *name, RuntimeValue value);
 RuntimeValue get_variable(Interpreter *interp, const char *name);
 void print_runtime_value(RuntimeValue value);
+void execute_printf(Interpreter *interp);
 
 // 运行时值创建辅助函数
 RuntimeValue create_int_value(int value);

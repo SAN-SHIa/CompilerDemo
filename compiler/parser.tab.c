@@ -1453,9 +1453,6 @@ yyreduce:
             print_ast(root, 0);
             export_ast_to_dot(root, "ast.dot");
             
-            // system("dot -Tpng -Gcharset=latin1 ast.dot -o ast.png"); 
-            printf("AST DOT file generated: ast.dot\n");
-            
             semantic_context = init_semantic();
             if (semantic_context) {
                 bool sem_ok = analyze_semantics(root, semantic_context);
@@ -1498,7 +1495,7 @@ yyreduce:
                                 free_code_generator(code_generator);
                             }
                             
-                            // Ìí¼Ó½âÊÍÆ÷Ö´ÐÐ
+                            // ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ï¿½
                             printf("\n=== PROGRAM INTERPRETATION ===\n");
                             interpreter = init_interpreter();
                             if (interpreter) {
@@ -1756,7 +1753,7 @@ yyreduce:
 /* Line 1455 of yacc.c  */
 #line 163 "parser.y"
     { 
-            // ¼ÆËã²ÎÊýÊýÁ¿
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             int arg_count = 0;
             ASTNode *curr = (yyvsp[(3) - (4)].node);
             while (curr) {
@@ -1768,7 +1765,7 @@ yyreduce:
                 }
             }
             
-            // ´´½¨²ÎÊýÊý×é
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             ASTNode **args = NULL;
             if (arg_count > 0) {
                 args = malloc(sizeof(ASTNode*) * arg_count);

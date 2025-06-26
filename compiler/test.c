@@ -6,10 +6,10 @@ int main() {
     result = (x * y) + (x - y);
     
     if (result > 40.0) {
-        printf("Initial result is greater than 40.0");
+        printf("Initial result is greater than 40.0\n");
     } else {
         result = result * 2.0;
-        printf("Doubled result");
+        printf("Doubled result: %f\n", result);
     }
     
     while (result < 100.0) {

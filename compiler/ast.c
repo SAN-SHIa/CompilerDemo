@@ -515,4 +515,31 @@ void export_ast_to_dot(ASTNode *node, const char *filename) {
     
     fclose(fp);
     printf("AST exported to file: %s\n", filename);
+    
+    // 自动生成PNG图像
+    char cmd[512];
+    char png_filename[256];
+    
+    // 从DOT文件名生成PNG文件名
+    strcpy(png_filename, filename);
+    char *dot_ext = strstr(png_filename, ".dot");
+    if (dot_ext) {
+        strcpy(dot_ext, ".png");
+    } else {
+        strcat(png_filename, ".png");
+    }
+    
+    // 构建命令
+    snprintf(cmd, sizeof(cmd), "dot -Tpng -Gcharset=UTF-8 \"%s\" -o \"%s\"", filename, png_filename);
+    
+    // 执行命令生成图像
+    int result = system(cmd);
+    if (result == 0) {
+        printf("AST PNG image generated: %s\n", png_filename);
+        fflush(stdout);
+    } else {
+        printf("Warning: Failed to generate PNG image. Please ensure Graphviz is installed.\n");
+        printf("You can manually generate the image using: dot -Tpng \"%s\" -o \"%s\"\n", filename, png_filename);
+        fflush(stdout);
+    }
 }

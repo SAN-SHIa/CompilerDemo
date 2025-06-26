@@ -16,6 +16,11 @@ Interpreter* init_interpreter(void) {
     interp->pc = 0;
     interp->running = true;
     
+    // 初始化参数栈
+    interp->max_params = 10;
+    interp->param_stack = (RuntimeValue*)malloc(interp->max_params * sizeof(RuntimeValue));
+    interp->param_count = 0;
+    
     // 初始化返回值
     interp->return_val.type = VAL_INT;
     interp->return_val.data.int_val = 0;
@@ -37,6 +42,16 @@ void free_interpreter(Interpreter *interp) {
         }
         free(current);
         current = next;
+    }
+    
+    // 释放参数栈
+    if (interp->param_stack) {
+        for (int i = 0; i < interp->param_count; i++) {
+            if (interp->param_stack[i].type == VAL_STRING && interp->param_stack[i].data.str_val) {
+                free(interp->param_stack[i].data.str_val);
+            }
+        }
+        free(interp->param_stack);
     }
     
     free(interp);
@@ -106,7 +121,7 @@ void print_runtime_value(RuntimeValue value) {
             printf("%d", value.data.int_val);
             break;
         case VAL_FLOAT:
-            printf("%f", value.data.float_val);
+            printf("%.6f", value.data.float_val);
             break;
         case VAL_STRING:
             if (value.data.str_val) {
@@ -115,10 +130,65 @@ void print_runtime_value(RuntimeValue value) {
                 printf("(null)");
             }
             break;
-        default:
-            printf("(unknown type)");
-            break;
     }
+}
+
+// 执行printf函数
+void execute_printf(Interpreter *interp) {
+    if (interp->param_count == 0) {
+        return;
+    }
+    
+    // 第一个参数应该是格式字符串
+    RuntimeValue format = interp->param_stack[0];
+    if (format.type != VAL_STRING || !format.data.str_val) {
+        printf("Error: printf format string is not valid\n");
+        return;
+    }
+    
+    char *fmt = format.data.str_val;
+    int param_index = 1;
+    
+    printf("Output: ");
+    for (int i = 0; fmt[i]; i++) {
+        if (fmt[i] == '%' && fmt[i+1] && param_index < interp->param_count) {
+            char specifier = fmt[i+1];
+            switch (specifier) {
+                case 'd':
+                case 'i':
+                    if (interp->param_stack[param_index].type == VAL_INT) {
+                        printf("%d", interp->param_stack[param_index].data.int_val);
+                    } else if (interp->param_stack[param_index].type == VAL_FLOAT) {
+                        printf("%d", (int)interp->param_stack[param_index].data.float_val);
+                    }
+                    break;
+                case 'f':
+                    if (interp->param_stack[param_index].type == VAL_FLOAT) {
+                        printf("%.6f", interp->param_stack[param_index].data.float_val);
+                    } else if (interp->param_stack[param_index].type == VAL_INT) {
+                        printf("%.6f", (float)interp->param_stack[param_index].data.int_val);
+                    }
+                    break;
+                case 's':
+                    if (interp->param_stack[param_index].type == VAL_STRING) {
+                        printf("%s", interp->param_stack[param_index].data.str_val);
+                    }
+                    break;
+                case '%':
+                    printf("%%");
+                    param_index--; // 不消耗参数
+                    break;
+                default:
+                    printf("%%%c", specifier);
+                    break;
+            }
+            i++; // 跳过格式说明符
+            param_index++;
+        } else {
+            printf("%c", fmt[i]);
+        }
+    }
+    printf("\n");
 }
 
 // 执行操作数，返回运行时值
@@ -139,7 +209,38 @@ RuntimeValue execute_operand(Interpreter *interp, Operand *operand) {
             break;
             
         case OPERAND_VAR:
-            result = get_variable(interp, operand->var_name);
+            // 检查是否是字符串字面量（以引号开始和结束）
+            if (operand->var_name && operand->var_name[0] == '"') {
+                result.type = VAL_STRING;
+                // 去掉首尾引号并复制字符串
+                int len = strlen(operand->var_name);
+                if (len >= 2 && operand->var_name[len-1] == '"') {
+                    char *str = malloc(len - 1);
+                    strncpy(str, operand->var_name + 1, len - 2);
+                    str[len - 2] = '\0';
+                    // 处理转义字符
+                    char *processed = malloc(len);
+                    int j = 0;
+                    for (int i = 0; str[i]; i++) {
+                        if (str[i] == '\\' && str[i+1] == 'n') {
+                            processed[j++] = '\n';
+                            i++;
+                        } else if (str[i] == '\\' && str[i+1] == 't') {
+                            processed[j++] = '\t';
+                            i++;
+                        } else {
+                            processed[j++] = str[i];
+                        }
+                    }
+                    processed[j] = '\0';
+                    free(str);
+                    result.data.str_val = processed;
+                } else {
+                    result.data.str_val = strdup(operand->var_name);
+                }
+            } else {
+                result = get_variable(interp, operand->var_name);
+            }
             break;
             
         case OPERAND_TEMP:
@@ -154,7 +255,7 @@ RuntimeValue execute_operand(Interpreter *interp, Operand *operand) {
         case OPERAND_LABEL:
             // 标签作为操作数时，返回标签名作为字符串
             result.type = VAL_STRING;
-            result.data.str_val = operand->label_name;
+            result.data.str_val = strdup(operand->label_name);
             break;
             
         case OPERAND_FUNC:
@@ -309,17 +410,22 @@ InstructionArray* build_instruction_array(IRGenerator *ir_gen) {
     }
     
     // 填充指令数组并记录标签位置
+    int index = 0;
     instr = ir_gen->instructions;
-    for (int i = 0; i < count; i++) {
-        arr->instructions[i] = instr;
+    while (instr && index < count) {
+        arr->instructions[index] = instr;
         
         // 如果是标签指令，记录位置
-        if (instr->opcode == IR_LABEL && instr->result && instr->result->type == OPERAND_LABEL) {
-            arr->label_names[arr->label_count] = strdup(instr->result->label_name);
-            arr->label_positions[arr->label_count] = i;
-            arr->label_count++;
+        if (instr->opcode == IR_LABEL && instr->operand1 && instr->operand1->type == OPERAND_LABEL) {
+            if (arr->label_count < 100) {
+                arr->label_names[arr->label_count] = strdup(instr->operand1->label_name);
+                arr->label_positions[arr->label_count] = index;
+                arr->label_count++;
+                printf("Debug: Found label '%s' at position %d\n", instr->operand1->label_name, index);
+            }
         }
         
+        index++;
         instr = instr->next;
     }
     
@@ -474,9 +580,12 @@ void execute_ir(Interpreter *interp, IRGenerator *ir_gen) {
                         cond_value = (cond.data.float_val != 0.0) ? 1 : 0;
                     }
                     
+                    printf("Debug: IF_FALSE_GOTO condition value: %d\n", cond_value);
+                    
                     if (!cond_value && instr->operand2 && instr->operand2->type == OPERAND_LABEL) {
                         int pos = find_label_position(arr, instr->operand2->label_name);
                         if (pos >= 0) {
+                            printf("Debug: Jumping to label '%s' at position %d\n", instr->operand2->label_name, pos);
                             interp->pc = pos;
                             continue;  // 跳过pc自增
                         } else {
@@ -526,7 +635,23 @@ void execute_ir(Interpreter *interp, IRGenerator *ir_gen) {
                 break;
                 
             case IR_PARAM:
-                // 参数指令暂时不处理，实际的函数调用会处理参数
+                // 参数指令 - 将参数压入栈
+                {
+                    RuntimeValue param_value = execute_operand(interp, instr->operand1);
+                    if (interp->param_count < interp->max_params) {
+                        // 复制字符串值
+                        if (param_value.type == VAL_STRING && param_value.data.str_val) {
+                            interp->param_stack[interp->param_count].type = VAL_STRING;
+                            interp->param_stack[interp->param_count].data.str_val = strdup(param_value.data.str_val);
+                        } else {
+                            interp->param_stack[interp->param_count] = param_value;
+                        }
+                        interp->param_count++;
+                        printf("Debug: Added parameter %d: ", interp->param_count);
+                        print_runtime_value(param_value);
+                        printf("\n");
+                    }
+                }
                 break;
                 
             case IR_FUNC_BEGIN:
@@ -535,13 +660,20 @@ void execute_ir(Interpreter *interp, IRGenerator *ir_gen) {
                 break;
                 
             case IR_CALL:
-                // 简单的函数调用处理（printf等）
+                // 函数调用处理
                 if (instr->operand1 && instr->operand1->type == OPERAND_FUNC) {
                     if (strcmp(instr->operand1->func_name, "printf") == 0) {
-                        // 这里可以添加printf的简单实现
-                        printf("printf called\n");
+                        // 实现简单的printf功能
+                        execute_printf(interp);
                     }
                 }
+                // 清空参数栈
+                for (int i = 0; i < interp->param_count; i++) {
+                    if (interp->param_stack[i].type == VAL_STRING && interp->param_stack[i].data.str_val) {
+                        free(interp->param_stack[i].data.str_val);
+                    }
+                }
+                interp->param_count = 0;
                 break;
                 
             default:
