@@ -49,6 +49,8 @@ id          ({letter}|_)({letter}|{digit}|_)*
 {id}        { yycolumn += yyleng; yylval.str = _strdup(yytext); return IDENTIFIER; }
 {digit}+    { yycolumn += yyleng; yylval.num = atoi(yytext); return INTEGER; }
 {digit}+"."{digit}* { yycolumn += yyleng; yylval.fnum = atof(yytext); return FLOATING; }
+"//".*      { yycolumn += yyleng; } /* 单行注释 */
+"/*"([^*]|\*+[^*/])*\*+"/" { yycolumn += yyleng; } /* 多行注释 */
 [ \t]       { yycolumn += yyleng; } /* 忽略空白 */
 \n          { yylineno++; yycolumn = 1; } /* 换行处理 */
 .           { yycolumn += yyleng; yyerror("非法字符"); }

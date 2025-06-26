@@ -196,7 +196,7 @@ arg_list : STRING           { $$ = create_var($1); }
 %%
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s\n", s);
+    fprintf(stderr, "Syntax Error at line %d, column %d: %s\n", yylineno, yycolumn, s);
 }
 
 int main(int argc, char **argv) {
