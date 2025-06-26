@@ -28,7 +28,7 @@ python run_app.py
 
 ## 项目进度
 
-- [ ] Flex&Bison框架实现
+- [x] Flex&Bison框架实现
 - [ ] 自主实现
   - [x] 词法分析
   - [x] 语法分析(LR1)
