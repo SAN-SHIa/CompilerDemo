@@ -78,7 +78,7 @@
 #include "interpreter.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>  
+#include <string.h>
 
 extern FILE *yyin;
 extern int yylineno;
@@ -471,11 +471,11 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    50,    50,   120,   124,   125,   127,   128,   129,   130,
-     131,   132,   133,   134,   136,   137,   138,   139,   141,   143,
-     144,   146,   148,   149,   150,   151,   152,   153,   154,   155,
-     156,   157,   158,   159,   160,   161,   163,   196,   197,   198,
-     199,   200
+       0,    50,    50,   114,   118,   119,   121,   122,   123,   124,
+     125,   126,   127,   128,   130,   131,   132,   133,   135,   137,
+     138,   140,   142,   143,   144,   145,   146,   147,   148,   149,
+     150,   151,   152,   153,   154,   155,   157,   190,   191,   192,
+     193,   194
 };
 #endif
 
@@ -1453,6 +1453,9 @@ yyreduce:
             print_ast(root, 0);
             export_ast_to_dot(root, "ast.dot");
             
+            // system("dot -Tpng -Gcharset=latin1 ast.dot -o ast.png"); 
+            printf("AST DOT file generated: ast.dot\n");
+            
             semantic_context = init_semantic();
             if (semantic_context) {
                 bool sem_ok = analyze_semantics(root, semantic_context);
@@ -1487,13 +1490,7 @@ yyreduce:
                                 printf("C code generated: output.c\n");
                                 free_code_generator(code_generator);
                             }
-                            
-                            code_generator = init_code_generator(TARGET_X86_64, "output_x64.s");
-                            if (code_generator) {
-                                generate_target_code(ir_generator, code_generator);
-                                printf("x86-64 assembly code generated: output_x64.s\n");
-                                free_code_generator(code_generator);
-                            }
+
                             
                             // ���ӽ�����ִ��
                             printf("\n=== PROGRAM INTERPRETATION ===\n");
@@ -1518,7 +1515,7 @@ yyreduce:
   case 3:
 
 /* Line 1455 of yacc.c  */
-#line 120 "parser.y"
+#line 114 "parser.y"
     {
             (yyval.node) = create_func_def("int", (yyvsp[(2) - (7)].str), (yyvsp[(6) - (7)].node));
           ;}
@@ -1527,231 +1524,231 @@ yyreduce:
   case 4:
 
 /* Line 1455 of yacc.c  */
-#line 124 "parser.y"
+#line 118 "parser.y"
     { (yyval.node) = create_compound_stmt((yyvsp[(1) - (2)].node), (yyvsp[(2) - (2)].node)); ;}
     break;
 
   case 5:
 
 /* Line 1455 of yacc.c  */
-#line 125 "parser.y"
+#line 119 "parser.y"
     { (yyval.node) = (yyvsp[(1) - (1)].node); ;}
     break;
 
   case 6:
 
 /* Line 1455 of yacc.c  */
-#line 127 "parser.y"
+#line 121 "parser.y"
     { (yyval.node) = (yyvsp[(1) - (2)].node); ;}
     break;
 
   case 7:
 
 /* Line 1455 of yacc.c  */
-#line 128 "parser.y"
+#line 122 "parser.y"
     { (yyval.node) = (yyvsp[(1) - (2)].node); ;}
     break;
 
   case 8:
 
 /* Line 1455 of yacc.c  */
-#line 129 "parser.y"
+#line 123 "parser.y"
     { (yyval.node) = (yyvsp[(1) - (2)].node); ;}
     break;
 
   case 9:
 
 /* Line 1455 of yacc.c  */
-#line 130 "parser.y"
+#line 124 "parser.y"
     { (yyval.node) = (yyvsp[(1) - (1)].node); ;}
     break;
 
   case 10:
 
 /* Line 1455 of yacc.c  */
-#line 131 "parser.y"
+#line 125 "parser.y"
     { (yyval.node) = (yyvsp[(1) - (1)].node); ;}
     break;
 
   case 11:
 
 /* Line 1455 of yacc.c  */
-#line 132 "parser.y"
+#line 126 "parser.y"
     { (yyval.node) = (yyvsp[(1) - (2)].node); ;}
     break;
 
   case 12:
 
 /* Line 1455 of yacc.c  */
-#line 133 "parser.y"
+#line 127 "parser.y"
     { (yyval.node) = create_return_stmt((yyvsp[(2) - (3)].node)); ;}
     break;
 
   case 13:
 
 /* Line 1455 of yacc.c  */
-#line 134 "parser.y"
+#line 128 "parser.y"
     { (yyval.node) = (yyvsp[(2) - (3)].node); ;}
     break;
 
   case 14:
 
 /* Line 1455 of yacc.c  */
-#line 136 "parser.y"
+#line 130 "parser.y"
     { (yyval.node) = create_decl("int", (yyvsp[(2) - (2)].str)); ;}
     break;
 
   case 15:
 
 /* Line 1455 of yacc.c  */
-#line 137 "parser.y"
+#line 131 "parser.y"
     { (yyval.node) = create_decl_assign("int", (yyvsp[(2) - (4)].str), (yyvsp[(4) - (4)].node)); ;}
     break;
 
   case 16:
 
 /* Line 1455 of yacc.c  */
-#line 138 "parser.y"
+#line 132 "parser.y"
     { (yyval.node) = create_decl("float", (yyvsp[(2) - (2)].str)); ;}
     break;
 
   case 17:
 
 /* Line 1455 of yacc.c  */
-#line 139 "parser.y"
+#line 133 "parser.y"
     { (yyval.node) = create_decl_assign("float", (yyvsp[(2) - (4)].str), (yyvsp[(4) - (4)].node)); ;}
     break;
 
   case 18:
 
 /* Line 1455 of yacc.c  */
-#line 141 "parser.y"
+#line 135 "parser.y"
     { (yyval.node) = create_assign((yyvsp[(1) - (3)].str), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 19:
 
 /* Line 1455 of yacc.c  */
-#line 143 "parser.y"
+#line 137 "parser.y"
     { (yyval.node) = create_if((yyvsp[(3) - (5)].node), (yyvsp[(5) - (5)].node), NULL); ;}
     break;
 
   case 20:
 
 /* Line 1455 of yacc.c  */
-#line 144 "parser.y"
+#line 138 "parser.y"
     { (yyval.node) = create_if((yyvsp[(3) - (7)].node), (yyvsp[(5) - (7)].node), (yyvsp[(7) - (7)].node)); ;}
     break;
 
   case 21:
 
 /* Line 1455 of yacc.c  */
-#line 146 "parser.y"
+#line 140 "parser.y"
     { (yyval.node) = create_while((yyvsp[(3) - (5)].node), (yyvsp[(5) - (5)].node)); ;}
     break;
 
   case 22:
 
 /* Line 1455 of yacc.c  */
-#line 148 "parser.y"
+#line 142 "parser.y"
     { (yyval.node) = create_binop(OP_ADD, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 23:
 
 /* Line 1455 of yacc.c  */
-#line 149 "parser.y"
+#line 143 "parser.y"
     { (yyval.node) = create_binop(OP_SUB, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 24:
 
 /* Line 1455 of yacc.c  */
-#line 150 "parser.y"
+#line 144 "parser.y"
     { (yyval.node) = create_binop(OP_MUL, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 25:
 
 /* Line 1455 of yacc.c  */
-#line 151 "parser.y"
+#line 145 "parser.y"
     { (yyval.node) = create_binop(OP_DIV, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 26:
 
 /* Line 1455 of yacc.c  */
-#line 152 "parser.y"
+#line 146 "parser.y"
     { (yyval.node) = create_binop(OP_EQ, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 27:
 
 /* Line 1455 of yacc.c  */
-#line 153 "parser.y"
+#line 147 "parser.y"
     { (yyval.node) = create_binop(OP_NE, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 28:
 
 /* Line 1455 of yacc.c  */
-#line 154 "parser.y"
+#line 148 "parser.y"
     { (yyval.node) = create_binop(OP_LT, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 29:
 
 /* Line 1455 of yacc.c  */
-#line 155 "parser.y"
+#line 149 "parser.y"
     { (yyval.node) = create_binop(OP_GT, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 30:
 
 /* Line 1455 of yacc.c  */
-#line 156 "parser.y"
+#line 150 "parser.y"
     { (yyval.node) = create_binop(OP_LE, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 31:
 
 /* Line 1455 of yacc.c  */
-#line 157 "parser.y"
+#line 151 "parser.y"
     { (yyval.node) = create_binop(OP_GE, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 32:
 
 /* Line 1455 of yacc.c  */
-#line 158 "parser.y"
+#line 152 "parser.y"
     { (yyval.node) = create_var((yyvsp[(1) - (1)].str)); ;}
     break;
 
   case 33:
 
 /* Line 1455 of yacc.c  */
-#line 159 "parser.y"
+#line 153 "parser.y"
     { (yyval.node) = create_int((yyvsp[(1) - (1)].num)); ;}
     break;
 
   case 34:
 
 /* Line 1455 of yacc.c  */
-#line 160 "parser.y"
+#line 154 "parser.y"
     { (yyval.node) = create_float((yyvsp[(1) - (1)].fnum)); ;}
     break;
 
   case 35:
 
 /* Line 1455 of yacc.c  */
-#line 161 "parser.y"
+#line 155 "parser.y"
     { (yyval.node) = (yyvsp[(2) - (3)].node); ;}
     break;
 
   case 36:
 
 /* Line 1455 of yacc.c  */
-#line 163 "parser.y"
+#line 157 "parser.y"
     { 
             // �����������
             int arg_count = 0;
@@ -1789,42 +1786,42 @@ yyreduce:
   case 37:
 
 /* Line 1455 of yacc.c  */
-#line 196 "parser.y"
+#line 190 "parser.y"
     { (yyval.node) = create_var((yyvsp[(1) - (1)].str)); ;}
     break;
 
   case 38:
 
 /* Line 1455 of yacc.c  */
-#line 197 "parser.y"
+#line 191 "parser.y"
     { (yyval.node) = (yyvsp[(1) - (1)].node); ;}
     break;
 
   case 39:
 
 /* Line 1455 of yacc.c  */
-#line 198 "parser.y"
+#line 192 "parser.y"
     { (yyval.node) = create_compound_stmt((yyvsp[(1) - (3)].node), create_var((yyvsp[(3) - (3)].str))); ;}
     break;
 
   case 40:
 
 /* Line 1455 of yacc.c  */
-#line 199 "parser.y"
+#line 193 "parser.y"
     { (yyval.node) = create_compound_stmt((yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node)); ;}
     break;
 
   case 41:
 
 /* Line 1455 of yacc.c  */
-#line 200 "parser.y"
+#line 194 "parser.y"
     { (yyval.node) = NULL; ;}
     break;
 
 
 
 /* Line 1455 of yacc.c  */
-#line 1831 "parser.tab.c"
+#line 1825 "parser.tab.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -2036,7 +2033,7 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 202 "parser.y"
+#line 196 "parser.y"
 
 
 void yyerror(const char *s) {

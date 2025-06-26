@@ -7,7 +7,7 @@
 #include "interpreter.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>  
+#include <string.h>
 
 extern FILE *yyin;
 extern int yylineno;
@@ -90,15 +90,9 @@ program : func_def {
                                 printf("C code generated: output.c\n");
                                 free_code_generator(code_generator);
                             }
+
                             
-                            code_generator = init_code_generator(TARGET_X86_64, "output_x64.s");
-                            if (code_generator) {
-                                generate_target_code(ir_generator, code_generator);
-                                printf("x86-64 assembly code generated: output_x64.s\n");
-                                free_code_generator(code_generator);
-                            }
-                            
-                            // Ìí¼Ó½âÊÍÆ÷Ö´ÐÐ
+                            // ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ï¿½
                             printf("\n=== PROGRAM INTERPRETATION ===\n");
                             interpreter = init_interpreter();
                             if (interpreter) {
@@ -161,7 +155,7 @@ expr : expr '+' expr  { $$ = create_binop(OP_ADD, $1, $3); }
      | '(' expr ')'  { $$ = $2; }
 
 call_stmt : PRINTF '(' arg_list ')' { 
-            // ¼ÆËã²ÎÊýÊýÁ¿
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             int arg_count = 0;
             ASTNode *curr = $3;
             while (curr) {
@@ -173,7 +167,7 @@ call_stmt : PRINTF '(' arg_list ')' {
                 }
             }
             
-            // ´´½¨²ÎÊýÊý×é
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             ASTNode **args = NULL;
             if (arg_count > 0) {
                 args = malloc(sizeof(ASTNode*) * arg_count);

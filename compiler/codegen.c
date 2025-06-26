@@ -59,27 +59,6 @@ void free_code_generator(CodeGenerator *gen) {
 // 初始化寄存器
 void init_registers(CodeGenerator *gen) {
     switch (gen->target_arch) {
-        case TARGET_X86_64:
-            gen->register_count = 12;
-            gen->registers = (Register*)malloc(gen->register_count * sizeof(Register));
-            
-            // 通用寄存器
-            gen->registers[0] = (Register){REG_RAX, strdup("rax"), true, -1, TYPE_UNKNOWN};
-            gen->registers[1] = (Register){REG_RBX, strdup("rbx"), true, -1, TYPE_UNKNOWN};
-            gen->registers[2] = (Register){REG_RCX, strdup("rcx"), true, -1, TYPE_UNKNOWN};
-            gen->registers[3] = (Register){REG_RDX, strdup("rdx"), true, -1, TYPE_UNKNOWN};
-            gen->registers[4] = (Register){REG_RSI, strdup("rsi"), true, -1, TYPE_UNKNOWN};
-            gen->registers[5] = (Register){REG_RDI, strdup("rdi"), true, -1, TYPE_UNKNOWN};
-            gen->registers[6] = (Register){REG_R8, strdup("r8"), true, -1, TYPE_UNKNOWN};
-            gen->registers[7] = (Register){REG_R9, strdup("r9"), true, -1, TYPE_UNKNOWN};
-            
-            // 浮点寄存器
-            gen->registers[8] = (Register){REG_XMM0, strdup("xmm0"), true, -1, TYPE_UNKNOWN};
-            gen->registers[9] = (Register){REG_XMM1, strdup("xmm1"), true, -1, TYPE_UNKNOWN};
-            gen->registers[10] = (Register){REG_XMM2, strdup("xmm2"), true, -1, TYPE_UNKNOWN};
-            gen->registers[11] = (Register){REG_XMM3, strdup("xmm3"), true, -1, TYPE_UNKNOWN};
-            break;
-            
         case TARGET_PSEUDO:
             gen->register_count = 8;
             gen->registers = (Register*)malloc(gen->register_count * sizeof(Register));
@@ -112,11 +91,6 @@ void generate_target_code(IRGenerator *ir_gen, CodeGenerator *code_gen) {
     emit_file_header(code_gen);
     
     switch (code_gen->target_arch) {
-        case TARGET_X86_64:
-        case TARGET_X86_32:
-            printf("Generating assembly code...\n");
-            generate_assembly_code(ir_gen, code_gen);
-            break;
         case TARGET_C_CODE:
             printf("Generating C code...\n");
             generate_c_code(ir_gen, code_gen);
@@ -133,25 +107,6 @@ void generate_target_code(IRGenerator *ir_gen, CodeGenerator *code_gen) {
     emit_file_footer(code_gen);
     
     print_codegen_stats(code_gen);
-}
-
-// 生成汇编代码
-void generate_assembly_code(IRGenerator *ir_gen, CodeGenerator *code_gen) {
-    IRInstruction *instr = ir_gen->instructions;
-    
-    while (instr) {
-        switch (code_gen->target_arch) {
-            case TARGET_X86_64:
-                generate_x86_64_instruction(code_gen, instr);
-                break;
-            case TARGET_X86_32:
-                generate_x86_32_instruction(code_gen, instr);
-                break;
-            default:
-                break;
-        }
-        instr = instr->next;
-    }
 }
 
 // 收集所有临时变量及其类型
@@ -569,102 +524,6 @@ void generate_pseudo_code(IRGenerator *ir_gen, CodeGenerator *code_gen) {
     }
 }
 
-// 生成x86-64指令
-void generate_x86_64_instruction(CodeGenerator *gen, IRInstruction *instr) {
-    switch (instr->opcode) {
-        case IR_FUNC_BEGIN:
-            emit_function_prologue(gen, instr->operand1->func_name);
-            break;
-            
-        case IR_FUNC_END:
-            emit_function_epilogue(gen);
-            break;
-            
-        case IR_LOAD: {
-            RegisterType reg = allocate_register(gen, instr->result->data_type);
-            if (reg != REG_NONE) {
-                const char *reg_name = get_register_name(reg, instr->result->data_type, gen->target_arch);
-                emit_instruction(gen, "    mov %s, [%s]", reg_name, instr->operand1->var_name);
-                assign_temp_to_register(gen, instr->result->temp_id, reg, instr->result->data_type);
-            }
-            break;
-        }
-        
-        case IR_STORE: {
-            if (instr->operand1->type == OPERAND_TEMP) {
-                RegisterType reg = get_temp_register(gen, instr->operand1->temp_id);
-                if (reg != REG_NONE) {
-                    const char *reg_name = get_register_name(reg, instr->operand1->data_type, gen->target_arch);
-                    emit_instruction(gen, "    mov [%s], %s", instr->result->var_name, reg_name);
-                }
-            } else {
-                char operand_str[64];
-                generate_operand_code(gen, instr->operand1, operand_str, sizeof(operand_str));
-                emit_instruction(gen, "    mov [%s], %s", instr->result->var_name, operand_str);
-            }
-            break;
-        }
-        
-        case IR_BINOP: {
-            RegisterType left_reg = load_operand_to_register(gen, instr->operand1);
-            RegisterType right_reg = load_operand_to_register(gen, instr->operand2);
-            
-            if (left_reg != REG_NONE && right_reg != REG_NONE) {
-                const char *left_name = get_register_name(left_reg, instr->operand1->data_type, gen->target_arch);
-                const char *right_name = get_register_name(right_reg, instr->operand2->data_type, gen->target_arch);
-                const char *op_instr = get_binop_instruction(instr->binop, gen->target_arch, instr->result->data_type);
-                
-                emit_instruction(gen, "    %s %s, %s", op_instr, left_name, right_name);
-                
-                // 结果存储在left_reg中
-                assign_temp_to_register(gen, instr->result->temp_id, left_reg, instr->result->data_type);
-                free_register(gen, right_reg);
-            }
-            break;
-        }
-        
-        case IR_RETURN: {
-            if (instr->operand1) {
-                RegisterType reg = load_operand_to_register(gen, instr->operand1);
-                if (reg != REG_NONE && reg != REG_RAX) {
-                    const char *reg_name = get_register_name(reg, instr->operand1->data_type, gen->target_arch);
-                    emit_instruction(gen, "    mov rax, %s", reg_name);
-                }
-            }
-            emit_instruction(gen, "    ret");
-            break;
-        }
-        
-        case IR_LABEL:
-            emit_label(gen, instr->operand1->label_name);
-            break;
-            
-        case IR_GOTO:
-            emit_instruction(gen, "    jmp %s", instr->operand1->label_name);
-            break;
-            
-        case IR_IF_FALSE_GOTO: {
-            RegisterType reg = load_operand_to_register(gen, instr->operand1);
-            if (reg != REG_NONE) {
-                const char *reg_name = get_register_name(reg, instr->operand1->data_type, gen->target_arch);
-                emit_instruction(gen, "    test %s, %s", reg_name, reg_name);
-                emit_instruction(gen, "    jz %s", instr->operand2->label_name);
-            }
-            break;
-        }
-        
-        default:
-            emit_comment(gen, "Unsupported instruction");
-            break;
-    }
-}
-
-// 生成x86-32指令
-void generate_x86_32_instruction(CodeGenerator *gen, IRInstruction *instr) {
-    // 类似x86-64，但使用32位寄存器
-    generate_x86_64_instruction(gen, instr);
-}
-
 // 生成伪指令
 void generate_pseudo_instruction(CodeGenerator *gen, IRInstruction *instr) {
     switch (instr->opcode) {
@@ -884,20 +743,6 @@ void generate_operand_code(CodeGenerator *gen, Operand *operand, char *buffer, s
 // 辅助函数
 const char* get_register_name(RegisterType reg, DataType type, TargetArch arch) {
     switch (arch) {
-        case TARGET_X86_64:
-            switch (reg) {
-                case REG_RAX: return (type == TYPE_FLOAT) ? "xmm0" : "rax";
-                case REG_RBX: return (type == TYPE_FLOAT) ? "xmm1" : "rbx";
-                case REG_RCX: return (type == TYPE_FLOAT) ? "xmm2" : "rcx";
-                case REG_RDX: return (type == TYPE_FLOAT) ? "xmm3" : "rdx";
-                case REG_XMM0: return "xmm0";
-                case REG_XMM1: return "xmm1";
-                case REG_XMM2: return "xmm2";
-                case REG_XMM3: return "xmm3";
-                default: return "unknown";
-            }
-            break;
-            
         case TARGET_PSEUDO:
             // 在init_registers中已经设置了名称
             for (int i = 0; i < 8; i++) {
@@ -919,22 +764,12 @@ bool needs_float_register(DataType type) {
 }
 
 const char* get_binop_instruction(BinOpType op, TargetArch arch, DataType type) {
-    if (arch == TARGET_PSEUDO) {
-        switch (op) {
-            case OP_ADD: return "ADD";
-            case OP_SUB: return "SUB";
-            case OP_MUL: return "MUL";
-            case OP_DIV: return "DIV";
-            default: return "BINOP";
-        }
-    } else {
-        switch (op) {
-            case OP_ADD: return (type == TYPE_FLOAT) ? "addss" : "add";
-            case OP_SUB: return (type == TYPE_FLOAT) ? "subss" : "sub";
-            case OP_MUL: return (type == TYPE_FLOAT) ? "mulss" : "imul";
-            case OP_DIV: return (type == TYPE_FLOAT) ? "divss" : "idiv";
-            default: return "unknown";
-        }
+    switch (op) {
+        case OP_ADD: return "ADD";
+        case OP_SUB: return "SUB";
+        case OP_MUL: return "MUL";
+        case OP_DIV: return "DIV";
+        default: return "BINOP";
     }
 }
 
@@ -961,23 +796,15 @@ void emit_label(CodeGenerator *gen, const char *label) {
 }
 
 void emit_function_prologue(CodeGenerator *gen, const char *func_name) {
-    emit_instruction(gen, ".globl %s", func_name);
-    emit_label(gen, func_name);
-    if (gen->target_arch == TARGET_X86_64) {
-        emit_instruction(gen, "    push rbp");
-        emit_instruction(gen, "    mov rbp, rsp");
-    } else if (gen->target_arch == TARGET_PSEUDO) {
+    if (gen->target_arch == TARGET_PSEUDO) {
+        emit_instruction(gen, "FUNC_BEGIN %s", func_name);
         emit_instruction(gen, "    PUSH FP");
         emit_instruction(gen, "    MOVE FP, SP");
     }
 }
 
 void emit_function_epilogue(CodeGenerator *gen) {
-    if (gen->target_arch == TARGET_X86_64) {
-        emit_instruction(gen, "    mov rsp, rbp");
-        emit_instruction(gen, "    pop rbp");
-        emit_instruction(gen, "    ret");
-    } else if (gen->target_arch == TARGET_PSEUDO) {
+    if (gen->target_arch == TARGET_PSEUDO) {
         emit_instruction(gen, "    MOVE SP, FP");
         emit_instruction(gen, "    POP FP");
         emit_instruction(gen, "    RETURN");
@@ -986,9 +813,6 @@ void emit_function_epilogue(CodeGenerator *gen) {
 
 void emit_file_header(CodeGenerator *gen) {
     switch (gen->target_arch) {
-        case TARGET_X86_64:
-            emit_instruction(gen, ".section .text");
-            break;
         case TARGET_PSEUDO:
             emit_instruction(gen, "; Assembly code");
             emit_instruction(gen, "; Generated automatically");

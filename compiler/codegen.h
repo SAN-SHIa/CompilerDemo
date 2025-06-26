@@ -8,10 +8,6 @@
 
 // 目标架构类型
 typedef enum {
-    TARGET_X86_64,    // x86-64汇编
-    TARGET_X86_32,    // x86-32汇编
-    TARGET_ARM64,     // ARM64汇编
-    TARGET_MIPS,      // MIPS汇编
     TARGET_C_CODE,    // 生成C代码
     TARGET_PSEUDO     // 伪汇编（教学用）
 } TargetArch;
@@ -97,7 +93,6 @@ void free_code_generator(CodeGenerator *gen);
 
 // 主代码生成函数
 void generate_target_code(IRGenerator *ir_gen, CodeGenerator *code_gen);
-void generate_assembly_code(IRGenerator *ir_gen, CodeGenerator *code_gen);
 void generate_c_code(IRGenerator *ir_gen, CodeGenerator *code_gen);
 void generate_pseudo_code(IRGenerator *ir_gen, CodeGenerator *code_gen);
 
@@ -130,8 +125,6 @@ RegisterType load_operand_to_register(CodeGenerator *gen, Operand *operand);
 void store_register_to_operand(CodeGenerator *gen, RegisterType reg, Operand *operand);
 
 // 不同架构的代码生成
-void generate_x86_64_instruction(CodeGenerator *gen, IRInstruction *instr);
-void generate_x86_32_instruction(CodeGenerator *gen, IRInstruction *instr);
 void generate_pseudo_instruction(CodeGenerator *gen, IRInstruction *instr);
 
 // 数据类型处理
